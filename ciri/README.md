@@ -1,0 +1,1 @@
+Chirpig implementation rough idea
