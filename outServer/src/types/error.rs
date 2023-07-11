@@ -2,8 +2,11 @@ use std::convert::From;
 use std::error;
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::RwLock;
 
 use argon2::password_hash::Error as PaswordHashError;
+
+use crate::Config;
 
 pub type Result<T> = std::result::Result<T, RuntimeError>;
 
@@ -20,11 +23,22 @@ pub enum InternalError {
     FileIOError(PathBuf),
     SerdeError(PathBuf),
     Base64DecodeError,
+    ServerConfigError(ServerConfigError),
+    ServerError(String),
 }
 
 #[derive(Debug)]
 pub enum RequestError {
     InvalidPassword,
+}
+
+#[derive(Debug)]
+pub enum ServerConfigError {
+    InvalidConfigFile,
+    getConfigRuntime,
+    InvalidHost,
+    InvalidPort,
+    InvalidCert,
 }
 
 impl From<InternalError> for RuntimeError {
@@ -52,5 +66,19 @@ impl From<PaswordHashError> for RuntimeError {
 impl From<aes_gcm_siv::Error> for RuntimeError {
     fn from(item: aes_gcm_siv::Error) -> Self {
         RuntimeError::ServerError(InternalError::PasswordAesCrypto(item))
+    }
+}
+
+impl From<RwLock<Config>> for RuntimeError {
+    fn from(item: RwLock<Config>) -> Self {
+        RuntimeError::ServerError(InternalError::ServerError(
+            format!("{:?}", item).to_string(),
+        ))
+    }
+}
+
+impl From<ServerConfigError> for RuntimeError {
+    fn from(item: ServerConfigError) -> Self {
+        RuntimeError::ServerError(InternalError::ServerConfigError(item))
     }
 }

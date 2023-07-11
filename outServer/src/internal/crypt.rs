@@ -7,10 +7,10 @@ use generic_array::GenericArray;
 use k256::Secp256k1;
 use rand::SeedableRng;
 use rand_chacha::ChaCha20Rng;
+use serde::{Deserialize, Serialize};
 
-use base64::{engine::general_purpose, Engine as _};
-
-use crate::{InternalError, Result};
+use crate::internal::encode::Base64;
+use crate::{InternalError, Marker, Result};
 
 pub trait Crypt {
     const BLOCK_CHANK_SIZE: usize = 16;
@@ -21,10 +21,11 @@ pub trait Crypt {
     fn generate() -> Self;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct ChaCha20Poly1305(Vec<u8>);
+pub type ChaCha20Poly1305Crypted<T> = Marker<T, ChaCha20Poly1305>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Secp256k1Secret(Vec<u8>);
 
 impl Crypt for ChaCha20Poly1305 {
@@ -36,6 +37,20 @@ impl Crypt for ChaCha20Poly1305 {
         )
     }
 }
+
+impl Crypt for Secp256k1Secret {
+    fn generate() -> Self {
+        Self(
+            SecretKey::<Secp256k1>::random(&mut Self::seed())
+                .to_bytes()
+                .as_slice()
+                .iter()
+                .map(|&t| t)
+                .collect(),
+        )
+    }
+}
+
 impl ChaCha20Poly1305 {
     pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         let key = GenericArray::from_slice(&self.0);
@@ -54,48 +69,32 @@ impl ChaCha20Poly1305 {
         Ok(cipher.decrypt(GenericArray::from_slice(&data[..12]), &data[12..])?)
     }
 
-    pub fn serialize(&self) -> String {
-        general_purpose::STANDARD_NO_PAD.encode(&self.0)
+    pub fn serialize(&self) -> Result<Base64<Self>> {
+        Ok(Base64::encode(&self.0))
     }
 
-    pub fn deserialize(str: &str) -> Result<Self> {
-        Ok(Self(
-            general_purpose::STANDARD_NO_PAD
-                .decode(str)
-                .map_err(|_| InternalError::Base64DecodeError)?,
-        ))
+    pub fn deserialize(str: &Base64<Self>) -> Result<Self> {
+        Ok(Self(Base64::decode(str)?))
     }
 }
 
-impl Crypt for Secp256k1Secret {
-    fn generate() -> Self {
-        Self(
-            SecretKey::<Secp256k1>::random(&mut Self::seed())
-                .to_bytes()
-                .as_slice()
-                .iter()
-                .map(|&t| t)
-                .collect(),
-        )
-    }
-}
 impl Secp256k1Secret {
-    fn sign(&self, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn sign(&self, data: &[u8]) -> Result<Vec<u8>> {
         todo!();
     }
-    fn verify(&self, data: &[u8]) -> Result<Vec<u8>> {
+    pub fn verify(&self, data: &[u8]) -> Result<Vec<u8>> {
         todo!();
     }
-    fn serialize(&self, crypt: &ChaCha20Poly1305) -> Result<String> {
-        Ok(general_purpose::STANDARD_NO_PAD.encode(crypt.encrypt(&self.0)?))
+    pub fn serialize(
+        &self,
+        crypt: &ChaCha20Poly1305,
+    ) -> Result<Base64<ChaCha20Poly1305Crypted<Self>>> {
+        Ok(Base64::encode(&crypt.encrypt(&self.0)?))
     }
-    fn deserialize(str: &str, crypt: &ChaCha20Poly1305) -> Result<Self> {
-        Ok(Self(
-            crypt.decrypt(
-                &general_purpose::STANDARD_NO_PAD
-                    .decode(str)
-                    .map_err(|_| InternalError::Base64DecodeError)?,
-            )?,
-        ))
+    pub fn deserialize(
+        str: &Base64<ChaCha20Poly1305Crypted<Self>>,
+        crypt: &ChaCha20Poly1305,
+    ) -> Result<Self> {
+        Ok(Self(crypt.decrypt(&Base64::decode(&str)?)?))
     }
 }

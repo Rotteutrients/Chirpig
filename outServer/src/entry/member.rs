@@ -4,13 +4,11 @@ use url::Url;
 use argon2::Argon2;
 use crypto::elliptic_curve::{PublicKey, SecretKey};
 use crypto::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
-use k256::pkcs8::EncodePrivateKey;
-use k256::Secp256k1 as Secp256k1Chiper;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 
 use crate::internal::crypt::{Crypt, Secp256k1Secret};
-use crate::{InternalError, Result};
+use crate::{Config, InternalError, Result};
 
 #[derive(Debug)]
 pub struct Member {
@@ -60,8 +58,9 @@ impl MemberCredentials {
     }
 
     fn private_key() -> Result<String> {
-        let _private_key = Secp256k1Secret::generate();
-        //println!("{:?}", private_key.to_pkcs8_pem(base64ct::LineEnding::LF));
-        Ok(String::default())
+        println!("{:?}", &Config::get_symmetric_key());
+        Ok(Secp256k1Secret::generate()
+            .serialize(&Config::get_symmetric_key()?)?
+            .to_string())
     }
 }

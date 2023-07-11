@@ -11,4 +11,5 @@ pub struct FolloweeCredentials {
     symmetric_key: Option<String>,
     expires: Option<String>,
     synmmetric_key_next: Option<String>,
+    expires_next: Option<String>,
 }
