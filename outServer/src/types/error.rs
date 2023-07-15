@@ -1,6 +1,7 @@
 use std::convert::From;
 use std::error;
 use std::fmt;
+use std::fmt::Display;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
@@ -40,6 +41,13 @@ pub enum ServerConfigError {
     InvalidPort,
     InvalidCert,
 }
+
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", 32u64)
+    }
+}
+impl std::error::Error for RequestError {}
 
 impl From<InternalError> for RuntimeError {
     fn from(item: InternalError) -> Self {
